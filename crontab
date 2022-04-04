@@ -1,0 +1,2 @@
+# do something every minute
+* * * * * /usr/local/bin/php /cron_scripts/test_cron.php > /cron_scripts/test_cron.log 2>&1

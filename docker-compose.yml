@@ -1,0 +1,61 @@
+version: "3.9"
+
+# persisting db data in volume
+volumes:
+  db-vol:
+
+services:
+
+  # We have 4 services: the database, the db seeder, a cron that writes in db, and phpmyadmin to see the results of our running cron in a friendly UI
+
+  db:
+    image: mysql:latest
+    container_name: db
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "true"
+      # this is the name of our database, that will be created automatically
+      MYSQL_DATABASE: test_db
+    restart: unless-stopped
+    volumes:
+      - db-vol:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  # we'll use a seeder container to create our test table, that our scheduled PHP script will write to
+  db_seeder:
+    image: mysql:latest
+    # we copy our table creation script into the container
+    volumes:
+      - ./table.sql:/table.sql
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "true"
+    # we give the db time to initialize then we import our SQL script
+    entrypoint: [ "bash", "-c", "sleep 10 && mysql --user=root --host=db --port=3306 test_db < /table.sql && exit"] 
+    depends_on:
+      - db
+
+  # this is the container that will execute our cron
+  cron:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    # mapping the log file in the container to our host machine so we can actually see the logs
+    volumes:
+      - ./test_cron.log:/cron_scripts/test_cron.log
+    # run crond as main process of container
+    entrypoint: [ "bash", "-c", "cron -f"] 
+    depends_on:
+      - db_seeder
+
+  # our nice UI to browse our test table
+  phpmyadmin:
+      image: phpmyadmin:latest
+      restart: unless-stopped
+      ports:
+          - 8080:80
+      environment:
+          # we specify that we connect to an arbitrary server with the flag below
+          # "arbitrary" means you're able to specify which database server to use on login page of phpmyadmin      
+          - PMA_ARBITRARY=1
+      depends_on:
+        - db_seeder
