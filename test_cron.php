@@ -19,6 +19,6 @@ if( in_array ('pdo_mysql', get_loaded_extensions())) {
         ]);   
 
     } catch (\PDOException $pdoe) {
-        echo $pdoe->getMessage();
+        echo $pdoe->getMessage().PHP_EOL;
     }
 }
